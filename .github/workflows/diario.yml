@@ -1,0 +1,29 @@
+name: Instagram diario
+on:
+  schedule:
+    - cron: "30 14 * * *" # 8:30 CDMX, después de que el blog publica (7:00)
+  workflow_dispatch:
+    inputs:
+      prueba:
+        description: "Solo dibujar, sin publicar"
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency: instagram
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: |
+          git config user.name "owneria-bot"
+          git config user.email "owneria-bot@users.noreply.github.com"
+      - run: bun src/diario.ts
+        env:
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          PRUEBA: ${{ inputs.prueba && '1' || '0' }}

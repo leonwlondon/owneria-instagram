@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Owneria">
+  <circle class="ring" cx="50" cy="50" r="40" fill="none" stroke="#111114" stroke-width="8"/>
+  <circle class="dot" cx="50" cy="50" r="11" fill="#2563EB"/>
+</svg>
