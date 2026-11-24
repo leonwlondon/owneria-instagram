@@ -1,14 +1,15 @@
 // Publicación diaria en Instagram (@owneria.mx). Corre en GitHub Actions.
 // 1. Lee los artículos del blog en owneria.mx/api/public/articulos.
-// 2. Elige el más nuevo sin publicar y el más viejo sin publicar (así se ponen al día los anteriores).
+// 2. Mañana: el artículo nuevo (o uno anterior). Tarde: una pieza propia de src/banco.ts.
 // 3. Dibuja reel, carrusel o dato según toque, lo sube al repo (Instagram lo baja de GitHub Pages).
 // 4. Lo publica con la API de Instagram (Meta Graph API) y anota el slug en publicados.json.
 // PRUEBA=1 solo dibuja, no sube ni publica.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { laminas, textoPost, type Articulo } from "./contenido";
-import { dibujarCarrusel, TEMAS } from "./render";
-import { dibujarReel } from "./reel";
+import { laminas, textoPost, type Articulo, type Lamina } from "./contenido";
+import { BANCO, laminasPieza, textoPieza, type Pieza } from "./banco";
+import { dibujarCarrusel, TEMAS, type Tema } from "./render";
+import { dibujarReel, dibujarReelPregunta } from "./reel";
 
 type Formato = "reel" | "carrusel" | "dato";
 // Reel, carrusel con datos y mapa, imagen de dato; si el artículo no trae dato, va carrusel.
@@ -24,10 +25,11 @@ const PRUEBA = process.env["PRUEBA"] === "1";
 const SITIO = env("SITIO", "https://owneria.mx");
 // GitHub Pages sirve imágenes y video con el tipo correcto (raw.githubusercontent no lo hace con MP4).
 const RAW = env("RAW_BASE", "https://leonwlondon.github.io/owneria-instagram");
-const MAX = Number(env("MAX_POR_DIA", "2"));
+// Turno de la mañana: artículo del blog. Turno de la tarde: pieza propia (casos, glosario, ideas, preguntas…).
+const TURNO = env("TURNO", "manana") === "tarde" ? "tarde" : "manana";
 const API = env("IG_API", "https://graph.facebook.com/v23.0");
 
-type Registro = Record<string, { media: string; formato?: string; fecha: string }>;
+type Registro = Record<string, { media: string; formato?: string; banco?: boolean; fecha: string }>;
 const ARCH = join(RAIZ, "publicados.json");
 const publicados: Registro = existsSync(ARCH) ? JSON.parse(readFileSync(ARCH, "utf8")) : {};
 
@@ -69,9 +71,9 @@ async function listo(id: string, intentos: number) {
   throw new Error(`Contenedor ${id} no terminó de procesarse`);
 }
 
-async function publicar(formato: Formato, a: Articulo, archivos: string[], texto: string) {
+async function publicar(formato: Formato, carpeta: string, archivos: string[], texto: string) {
   const usuario = env("IG_USER_ID");
-  const urls = archivos.map((f) => `${RAW}/img/${a.slug}/${f}`);
+  const urls = archivos.map((f) => `${RAW}/img/${carpeta}/${f}`);
   for (const u of urls) await disponible(u);
 
   let id: string;
@@ -99,49 +101,87 @@ const articulos = ((await r.json()) as Articulo[])
   .filter((a) => new Date(a.publicado) <= new Date())
   .sort((x, y) => y.publicado.localeCompare(x.publicado));
 
-const pendientes = articulos.filter((a) => !publicados[a.slug]);
-const elegidos = [...new Set([pendientes[0], pendientes[pendientes.length - 1]])].filter(Boolean).slice(0, MAX) as Articulo[];
-console.log(`${pendientes.length} artículos sin publicar; hoy van: ${elegidos.map((a) => a.slug).join(", ") || "ninguno"}`);
+type Trabajo = { clave: string; carpeta: string; formato: Formato; texto: string; dibuja: (dir: string, tema: Tema) => Promise<string[]> };
 
-for (const [j, a] of elegidos.entries()) {
+/** Guarda las láminas como 01.jpg, 02.jpg… */
+async function guardarLaminas(dir: string, semilla: string, ls: Lamina[], tema: Tema) {
+  const archivos: string[] = [];
+  for (const [i, b] of (await dibujarCarrusel(semilla, ls, tema)).entries()) {
+    const f = `${String(i + 1).padStart(2, "0")}.jpg`;
+    writeFileSync(join(dir, f), b);
+    archivos.push(f);
+  }
+  return archivos;
+}
+
+function trabajoBlog(a: Articulo): Trabajo {
   const ls = laminas(a);
-  // Tema y formato rotan según cuántos posts van publicados: la cuadrícula alterna colores y formatos.
-  const n = Object.keys(publicados).length + (PRUEBA ? j : 0);
-  const tema = TEMAS[n % TEMAS.length]!;
-  let formato = FORMATOS[n % FORMATOS.length]!;
+  const nBlog = Object.values(publicados).filter((x) => !x.banco).length;
+  let formato = FORMATOS[nBlog % FORMATOS.length]!;
   const d = ls.find((l) => l.tipo === "dato");
   if (formato === "dato" && !d) formato = "carrusel";
+  return {
+    clave: a.slug,
+    carpeta: a.slug,
+    formato,
+    texto: textoPost(a, ls),
+    dibuja: async (dir, tema) => {
+      if (formato === "reel") {
+        await dibujarReel(ls, tema, join(dir, "reel.mp4"), join(dir, "portada.jpg"));
+        return ["reel.mp4", "portada.jpg"];
+      }
+      // «dato»: una sola imagen con el número real del artículo.
+      return guardarLaminas(dir, a.slug, formato === "dato" ? [d!] : ls, tema);
+    },
+  };
+}
 
-  const dir = join(RAIZ, "img", a.slug);
+function trabajoBanco(p: Pieza): Trabajo {
+  return {
+    clave: `banco:${p.id}`,
+    carpeta: `banco-${p.id}`,
+    formato: p.serie === "pregunta" ? "reel" : p.serie === "caso" ? "carrusel" : "dato",
+    texto: textoPieza(p),
+    dibuja: async (dir, tema) => {
+      if (p.serie === "pregunta") {
+        await dibujarReelPregunta(p, tema, join(dir, "reel.mp4"), join(dir, "portada.jpg"));
+        return ["reel.mp4", "portada.jpg"];
+      }
+      return guardarLaminas(dir, p.id, laminasPieza(p), tema);
+    },
+  };
+}
+
+const pendientes = articulos.filter((a) => !publicados[a.slug]);
+const reciente = pendientes.find((a) => Date.now() - new Date(a.publicado).getTime() < 3 * 864e5);
+// Mañana: el artículo nuevo; si no hay, uno de los anteriores (del más viejo al más nuevo).
+const delBlog = reciente ?? pendientes[pendientes.length - 1];
+const delBanco = BANCO.find((p) => !publicados[`banco:${p.id}`]);
+let trabajo: Trabajo | undefined;
+if (TURNO === "manana") trabajo = delBlog ? trabajoBlog(delBlog) : delBanco && trabajoBanco(delBanco);
+else trabajo = delBanco ? trabajoBanco(delBanco) : delBlog && trabajoBlog(delBlog);
+console.log(`Turno ${TURNO}: ${pendientes.length} artículos y ${BANCO.filter((p) => !publicados[`banco:${p.id}`]).length} piezas propias sin publicar; va ${trabajo?.clave ?? "nada"}`);
+if (!delBanco) console.log("AVISO: se acabó el banco de piezas propias; hay que escribir más en src/banco.ts");
+
+if (trabajo) {
+  // El tema rota con cada post publicado: la cuadrícula alterna colores.
+  const tema = TEMAS[Object.keys(publicados).length % TEMAS.length]!;
+  const dir = join(RAIZ, "img", trabajo.carpeta);
   mkdirSync(dir, { recursive: true });
-  const archivos: string[] = [];
-  if (formato === "reel") {
-    await dibujarReel(ls, tema, join(dir, "reel.mp4"), join(dir, "portada.jpg"));
-    archivos.push("reel.mp4", "portada.jpg");
-  } else {
-    // «dato»: una sola imagen con el número real del artículo.
-    const cuales = formato === "dato" ? [d!] : ls;
-    for (const [i, b] of (await dibujarCarrusel(a.slug, cuales, tema)).entries()) {
-      const f = `${String(i + 1).padStart(2, "0")}.jpg`;
-      writeFileSync(join(dir, f), b);
-      archivos.push(f);
-    }
-  }
-  const texto = textoPost(a, ls);
-  writeFileSync(join(dir, "texto.txt"), texto);
+  const archivos = await trabajo.dibuja(dir, tema);
+  writeFileSync(join(dir, "texto.txt"), trabajo.texto);
   if (PRUEBA) {
-    console.log(`PRUEBA: ${a.slug} como ${formato} (${tema}), ${archivos.length} archivos, sin publicar`);
-    continue;
+    console.log(`PRUEBA: ${trabajo.clave} como ${trabajo.formato} (${tema}), ${archivos.length} archivos, sin publicar`);
+  } else {
+    git("add", `img/${trabajo.carpeta}`);
+    git("commit", "-q", "-m", `Imágenes: ${trabajo.clave}`);
+    git("push", "-q");
+    const media = await publicar(trabajo.formato, trabajo.carpeta, archivos, trabajo.texto);
+    publicados[trabajo.clave] = { media, formato: trabajo.formato, banco: trabajo.clave.startsWith("banco:"), fecha: new Date().toISOString() };
+    writeFileSync(ARCH, `${JSON.stringify(publicados, null, 2)}\n`);
+    git("add", "publicados.json");
+    git("commit", "-q", "-m", `Publicado en Instagram: ${trabajo.clave}`);
+    git("push", "-q");
+    console.log(`Publicado ${trabajo.clave} (${trabajo.formato}) → ${media}`);
   }
-  git("add", `img/${a.slug}`);
-  git("commit", "-q", "-m", `Imágenes: ${a.slug}`);
-  git("push", "-q");
-
-  const media = await publicar(formato, a, archivos, texto);
-  publicados[a.slug] = { media, formato, fecha: new Date().toISOString() };
-  writeFileSync(ARCH, `${JSON.stringify(publicados, null, 2)}\n`);
-  git("add", "publicados.json");
-  git("commit", "-q", "-m", `Publicado en Instagram: ${a.slug}`);
-  git("push", "-q");
-  console.log(`Publicado ${a.slug} (${formato}) → ${media}`);
 }

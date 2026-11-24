@@ -7,6 +7,7 @@ import { Resvg } from "@resvg/resvg-js";
 import ffmpeg from "ffmpeg-static";
 import sharp from "sharp";
 import { recortar, type Lamina } from "./contenido";
+import type { Pieza } from "./banco";
 import { b64, FUENTES, h, img, P, partir, wordmark, type Nodo, type Paleta, type Tema } from "./render";
 
 const W = 1080;
@@ -211,7 +212,90 @@ function escenas(ls: Lamina[], p: Paleta): Escena[] {
 
 export async function dibujarReel(ls: Lamina[], tema: Tema, salida: string, portadaJpg: string) {
   const p = P[tema];
-  const es = escenas(ls, p);
+  return grabar(p, escenas(ls, p), salida, portadaJpg, 2.6);
+}
+
+/** Reel de «Pregúntale a tu negocio»: la pregunta se escribe sola y el negocio contesta con datos. */
+export async function dibujarReelPregunta(q: Extract<Pieza, { serie: "pregunta" }>, tema: Tema, salida: string, portadaJpg: string) {
+  const p = P[tema];
+  const r = q.respuesta;
+  const TONO = { ok: p.acento, aviso: "#F59E0B", mal: "#EF4444" } as const;
+  const tq = 0.7; // empieza a escribirse la pregunta
+  const tqFin = tq + q.pregunta.length * 0.035;
+  const tr = tqFin + 1.1; // contesta
+  const tFilas = tr + 0.8;
+  const tPie = tFilas + r.filas.length * 0.45 + 0.6;
+  const z = tPie + 3;
+  const burbuja = (estilo: Record<string, unknown>, ...hijos: unknown[]) =>
+    h("div", { borderRadius: 44, padding: "34px 40px", flexDirection: "column", ...estilo }, ...hijos);
+  const escena: Escena = {
+    a: 0,
+    z,
+    dibuja: (t) => {
+      const letras = Math.floor(lim((t - tq) / (tqFin - tq)) * q.pregunta.length);
+      const escribiendo = t > tqFin + 0.2 && t < tr;
+      const vr = tramo(t, tr, tr + 0.6);
+      const filas =
+        r.tipo === "barras"
+          ? r.filas.map(([n, pct, v], k) => {
+              const vf = tramo(t, tFilas + k * 0.45, tFilas + k * 0.45 + 1.2);
+              return h(
+                "div",
+                { flexDirection: "column", gap: 12, opacity: tramo(t, tFilas + k * 0.45, tFilas + k * 0.45 + 0.4) },
+                h("div", { justifyContent: "space-between", fontSize: 34 }, h("div", { color: p.suave }, n), h("div", { fontWeight: 500 }, v)),
+                h("div", { height: 22, borderRadius: 22, background: p.linea }, h("div", { width: `${pct * vf}%`, height: 22, borderRadius: 22, background: p.acento })),
+              );
+            })
+          : r.filas.map((f, k) => {
+              const vf = tramo(t, tFilas + k * 0.45, tFilas + k * 0.45 + 0.6);
+              return h(
+                "div",
+                { gap: 24, alignItems: "flex-start", opacity: vf, transform: `translateX(${(1 - vf) * 60}px)` },
+                h("div", { width: 22, height: 22, borderRadius: 22, background: TONO[f.tono], marginTop: 14, flexShrink: 0 }),
+                h("div", { flexDirection: "column" }, h("div", { fontSize: 36, fontWeight: 500 }, f.t), h("div", { fontSize: 30, color: p.suave, marginTop: 4 }, f.s)),
+              );
+            });
+      return h(
+        "div",
+        { width: W, height: H, position: "relative" },
+        capa([
+          h("div", { fontSize: 28, fontWeight: 500, letterSpacing: 5, color: p.acento, opacity: tramo(t, 0, 0.5) }, "PREGÚNTALE A TU NEGOCIO"),
+          // Pregunta del dueño.
+          h(
+            "div",
+            { marginTop: 50, justifyContent: "flex-end", opacity: tramo(t, tq - 0.2, tq + 0.2) },
+            burbuja({ background: p.boton, color: p.botonTexto, maxWidth: 820, borderBottomRightRadius: 10 }, h("div", { fontSize: 46, lineHeight: 1.3 }, `${q.pregunta.slice(0, letras)}${t < tqFin ? "|" : ""}`)),
+          ),
+          // Escribiendo…
+          escribiendo
+            ? h(
+                "div",
+                { marginTop: 36, gap: 14, padding: "30px 38px", borderRadius: 44, background: p.linea, alignSelf: "flex-start" },
+                ...[0, 1, 2].map((k) => h("div", { width: 18, height: 18, borderRadius: 18, background: p.texto, opacity: 0.3 + 0.7 * Math.abs(Math.sin(t * 5 + k)) })),
+              )
+            : h("div", {}),
+          // Respuesta con datos.
+          t >= tr
+            ? h(
+                "div",
+                { marginTop: 36, opacity: vr, transform: `translateY(${(1 - vr) * 40}px)` },
+                burbuja(
+                  { background: p.linea, width: 900, borderBottomLeftRadius: 10, gap: 30 },
+                  h("div", { fontSize: 40, lineHeight: 1.35, fontWeight: 300 }, r.intro),
+                  h("div", { flexDirection: "column", gap: 26, marginTop: 6 }, ...filas),
+                  r.pie ? h("div", { fontSize: 34, lineHeight: 1.35, color: p.acento, opacity: tramo(t, tPie, tPie + 0.6) }, r.pie) : h("div", {}),
+                ),
+              )
+            : h("div", {}),
+        ]),
+        h("div", { position: "absolute", right: 90, bottom: 150, fontSize: 28, color: p.tenue }, "Datos de ejemplo"),
+      );
+    },
+  };
+  return grabar(p, [escena], salida, portadaJpg, tPie + 1);
+}
+
+async function grabar(p: Paleta, es: Escena[], salida: string, portadaJpg: string, tPortada: number) {
   const dur = es[es.length - 1]!.z;
   const cuadros = Math.round(dur * FPS);
   const proc = spawn(
@@ -242,7 +326,7 @@ export async function dibujarReel(ls: Lamina[], tema: Tema, salida: string, port
     const r = new Resvg(svg).render();
     if (!proc.stdin.write(r.pixels)) await new Promise((ok) => proc.stdin.once("drain", ok));
     // Portada del reel: el título ya completo.
-    if (Math.abs(t - 2.6) < 0.5 / FPS) portada = await sharp(r.asPng()).jpeg({ quality: 90 }).toBuffer();
+    if (Math.abs(t - tPortada) < 0.5 / FPS) portada = await sharp(r.asPng()).jpeg({ quality: 90 }).toBuffer();
   }
   proc.stdin.end();
   await fin;

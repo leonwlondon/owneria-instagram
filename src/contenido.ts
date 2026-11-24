@@ -20,7 +20,10 @@ export type Lamina =
   | { tipo: "punto"; n: number; titulo: string; texto: string }
   | { tipo: "diagrama"; titulo: string; nodos: string[] }
   | { tipo: "dato"; valor: string; texto: string }
-  | { tipo: "cierre"; idea: string };
+  | { tipo: "cierre"; idea: string }
+  | { tipo: "seccion"; etiqueta: string; titulo: string; texto?: string; lista?: string[]; fondo?: string; chips?: boolean }
+  | { tipo: "termino"; termino: string; definicion: string; ejemplo: string }
+  | { tipo: "frase"; texto: string; firma: string };
 
 const MAX_PUNTOS = 5;
 

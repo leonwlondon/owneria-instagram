@@ -1,9 +1,15 @@
 name: Instagram diario
 on:
   schedule:
-    - cron: "30 14 * * *" # 8:30 CDMX, después de que el blog publica (7:00)
+    - cron: "30 14 * * *" # 8:30 CDMX: artículo del blog (sale a las 7:00)
+    - cron: "0 1 * * *" # 19:00 CDMX: pieza propia (casos, glosario, ideas, preguntas…)
   workflow_dispatch:
     inputs:
+      turno:
+        description: "Turno"
+        type: choice
+        options: [manana, tarde]
+        default: manana
       prueba:
         description: "Solo dibujar, sin publicar"
         type: boolean
@@ -14,7 +20,7 @@ concurrency: instagram
 jobs:
   publicar:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -26,4 +32,5 @@ jobs:
         env:
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          TURNO: ${{ github.event.schedule == '0 1 * * *' && 'tarde' || inputs.turno || 'manana' }}
           PRUEBA: ${{ inputs.prueba && '1' || '0' }}

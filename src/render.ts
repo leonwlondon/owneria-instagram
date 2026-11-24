@@ -193,7 +193,7 @@ function marco(p: Paleta, i: number, total: number, fondo: Nodo[], contenido: No
         // Barra de avance del carrusel.
         h(
           "div",
-          { gap: 8, alignItems: "center" },
+          { gap: 8, alignItems: "center", opacity: total > 1 ? 1 : 0 },
           ...Array.from({ length: total }, (_, k) =>
             h("div", { width: k === i ? 46 : 14, height: 8, borderRadius: 8, background: k === i ? p.acento : p.linea }),
           ),
@@ -272,6 +272,82 @@ function arbol(l: Lamina, i: number, total: number, p: Paleta, tramo: string): N
   const etiqueta = (t: string) =>
     h("div", { alignItems: "center", gap: 18, fontSize: 26, fontWeight: 500, letterSpacing: 4, color: p.acento }, h("div", { width: 56, height: 3, background: p.acento }), t);
 
+  if (l.tipo === "seccion") {
+    return marco(
+      p,
+      i,
+      total,
+      l.fondo ? [h("div", { position: "absolute", left: -20, bottom: 120, fontSize: 330, fontWeight: 500, letterSpacing: -18, color: p.aro, lineHeight: 1 }, l.fondo)] : [],
+      h(
+        "div",
+        { flexDirection: "column" },
+        etiqueta(l.etiqueta),
+        h("div", { marginTop: 34, fontSize: l.titulo.length > 40 ? 62 : 74, fontWeight: 500, lineHeight: 1.1, letterSpacing: -2 }, l.titulo),
+        l.texto ? h("div", { marginTop: 40, fontSize: 40, fontWeight: 300, lineHeight: 1.45, color: p.suave }, l.texto) : h("div", {}),
+        l.lista && l.chips
+          ? h(
+              "div",
+              { marginTop: 44, flexWrap: "wrap", gap: 16 },
+              ...l.lista.map((t) => h("div", { border: `2px solid ${p.linea}`, borderRadius: 999, padding: "14px 26px", fontSize: 30, color: p.suave }, t)),
+            )
+          : l.lista
+            ? h(
+                "div",
+                { flexDirection: "column", marginTop: 44, gap: 26 },
+                ...l.lista.map((t) =>
+                  h(
+                    "div",
+                    { gap: 22, alignItems: "flex-start" },
+                    h("div", { width: 46, height: 46, borderRadius: 46, background: p.linea, alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 4 }, icono(p, CHECK, 28)),
+                    h("div", { fontSize: 37, fontWeight: 300, lineHeight: 1.38, color: p.suave }, t),
+                  ),
+                ),
+              )
+            : h("div", {}),
+      ),
+      [h("div", {}, "@owneria.mx"), h("div", {}, total > 1 ? `${String(i + 1).padStart(2, "0")} / ${String(total).padStart(2, "0")}` : "owneria.mx")],
+      tramo,
+    );
+  }
+
+  if (l.tipo === "termino") {
+    return marco(
+      p,
+      i,
+      total,
+      [aroGrande(p, 1000, 420, 520, false)],
+      h(
+        "div",
+        { flexDirection: "column" },
+        etiqueta("GLOSARIO DEL DUEÑO"),
+        h("div", { marginTop: 20, fontSize: l.termino.length > 9 ? 130 : l.termino.length > 5 ? 170 : 230, fontWeight: 400, lineHeight: 1.05, letterSpacing: -6, color: p.acento }, l.termino),
+        h("div", { marginTop: 30, fontSize: 46, fontWeight: 300, lineHeight: 1.36, letterSpacing: -0.5 }, l.definicion),
+        h("div", { marginTop: 44, width: 90, height: 3, background: p.linea }),
+        h("div", { marginTop: 30, fontSize: 24, fontWeight: 500, letterSpacing: 4, color: p.tenue }, "EJEMPLO"),
+        h("div", { marginTop: 12, fontSize: 36, fontWeight: 300, lineHeight: 1.4, color: p.suave }, l.ejemplo),
+      ),
+      [h("div", {}, "@owneria.mx"), h("div", {}, "owneria.mx")],
+      tramo,
+    );
+  }
+
+  if (l.tipo === "frase") {
+    return marco(
+      p,
+      i,
+      total,
+      [h("div", { position: "absolute", left: 60, top: 140, fontSize: 620, fontWeight: 500, lineHeight: 1, color: p.aro }, "“")],
+      h(
+        "div",
+        { flexDirection: "column" },
+        h("div", { fontSize: l.texto.length > 80 ? 70 : l.texto.length > 45 ? 84 : 100, fontWeight: 300, lineHeight: 1.12, letterSpacing: -2.5 }, l.texto),
+        h("div", { marginTop: 50, alignItems: "center", gap: 18, fontSize: 30, color: p.acento, fontWeight: 500 }, h("div", { width: 56, height: 3, background: p.acento }), l.firma),
+      ),
+      [h("div", {}, "@owneria.mx"), h("div", {}, "owneria.mx")],
+      tramo,
+    );
+  }
+
   if (l.tipo === "diagrama") {
     const n = l.nodos.length;
     return marco(
@@ -327,7 +403,7 @@ function arbol(l: Lamina, i: number, total: number, p: Paleta, tramo: string): N
         "div",
         { flexDirection: "column" },
         etiqueta("EL DATO"),
-        h("div", { marginTop: 10, fontSize: l.valor.length > 3 ? 300 : 400, fontWeight: 300, lineHeight: 1, letterSpacing: -20, color: p.acento }, l.valor),
+        h("div", { marginTop: 10, fontSize: l.valor.length > 5 ? 190 : l.valor.length > 3 ? 300 : 400, fontWeight: 300, lineHeight: 1, letterSpacing: l.valor.length > 5 ? -6 : -20, color: p.acento }, l.valor),
         h("div", { marginTop: 30, fontSize: 46, fontWeight: 300, lineHeight: 1.35, letterSpacing: -0.5 }, l.texto),
       ),
       [h("div", {}, "@owneria.mx"), h("div", {}, "Dato real de un proyecto")],
