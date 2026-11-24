@@ -7,7 +7,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { laminas, textoPost, type Articulo } from "./contenido";
-import { dibujar } from "./render";
+import { dibujarCarrusel, TEMAS } from "./render";
 
 const RAIZ = join(import.meta.dir, "..");
 const env = (k: string, def?: string) => {
@@ -84,14 +84,16 @@ const pendientes = articulos.filter((a) => !publicados[a.slug]);
 const elegidos = [...new Set([pendientes[0], pendientes[pendientes.length - 1]])].filter(Boolean).slice(0, MAX) as Articulo[];
 console.log(`${pendientes.length} artículos sin publicar; hoy van: ${elegidos.map((a) => a.slug).join(", ") || "ninguno"}`);
 
-for (const a of elegidos) {
+for (const [j, a] of elegidos.entries()) {
   const ls = laminas(a);
+  // El tema rota según cuántos posts van publicados: la cuadrícula del perfil alterna noche, azul y claro.
+  const tema = TEMAS[(Object.keys(publicados).length + (PRUEBA ? j : 0)) % TEMAS.length]!;
   const dir = join(RAIZ, "img", a.slug);
   mkdirSync(dir, { recursive: true });
   const archivos: string[] = [];
-  for (const [i, l] of ls.entries()) {
+  for (const [i, b] of (await dibujarCarrusel(a.slug, ls, tema)).entries()) {
     const f = `${String(i + 1).padStart(2, "0")}.jpg`;
-    writeFileSync(join(dir, f), await dibujar(l, i, ls.length));
+    writeFileSync(join(dir, f), b);
     archivos.push(f);
   }
   const texto = textoPost(a, ls);
