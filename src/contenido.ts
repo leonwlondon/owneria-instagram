@@ -9,12 +9,18 @@ export type Articulo = {
   palabrasClave: string[];
   cuerpo: string; // Markdown del blog
   publicado: string; // ISO
+  ilustracion?: Figura;
+  figuras?: Figura[];
 };
+
+export type Figura = { plantilla?: string; etiquetas?: string[]; pie?: string };
 
 export type Lamina =
   | { tipo: "portada"; categoria: string; titulo: string }
   | { tipo: "punto"; n: number; titulo: string; texto: string }
-  | { tipo: "cierre"; titulo: string };
+  | { tipo: "diagrama"; titulo: string; nodos: string[] }
+  | { tipo: "dato"; valor: string; texto: string }
+  | { tipo: "cierre"; idea: string };
 
 const MAX_PUNTOS = 5;
 
@@ -76,11 +82,42 @@ export function laminas(a: Articulo): Lamina[] {
     texto: primerBloque(s.cuerpo),
   }));
 
-  return [
-    { tipo: "portada", categoria: a.categoria, titulo: a.titulo },
-    ...puntos,
-    { tipo: "cierre", titulo: "¿Quieres aplicarlo en tu negocio?" },
-  ];
+  const extra: Lamina[] = [];
+  const d = dato(a);
+  if (d) extra.push(d);
+  const g = diagrama(a);
+  if (g) extra.push(g);
+  // Portada, dos puntos, el dato y el diagrama en medio (rompen el ritmo), el resto de puntos y la idea final.
+  const mezcla = [...puntos.slice(0, 2), ...extra, ...puntos.slice(2)].slice(0, 7);
+  return [{ tipo: "portada", categoria: a.categoria, titulo: a.titulo }, ...mezcla, { tipo: "cierre", idea: recortar(a.descripcion, 150) }];
+}
+
+/** Diagrama con las etiquetas de una figura real del artículo (pasos, sistemas, etc.). */
+export function diagrama(a: Articulo): Lamina | null {
+  const f = [...(a.figuras ?? []), ...(a.ilustracion ? [a.ilustracion] : [])].find(
+    // Sin etiquetas con montos o folios de ejemplo de la ilustración.
+    (x) => (x.etiquetas?.length ?? 0) >= 3 && (x.etiquetas?.length ?? 0) <= 6 && !x.etiquetas!.some((e) => /\$|\d{3}/.test(e)),
+  );
+  if (!f) return null;
+  return { tipo: "diagrama", titulo: recortar(textoPlano(f.pie ?? a.titulo), 120), nodos: f.etiquetas!.map((e) => recortar(e, 28)) };
+}
+
+/**
+ * Un dato con número que ya viene en el artículo (nunca se inventa).
+ * Ignora años, artículos de ley («69-B») y números sueltos sin contexto.
+ */
+export function dato(a: Articulo): Lamina | null {
+  const texto = textoPlano(a.cuerpo.replace(/^#+ .*$/gm, ""));
+  const oraciones = texto.split(/(?<=[.!?])\s+/);
+  for (const o of oraciones) {
+    const m = o.match(/(?<![\w-])(\d{1,3}(?:[.,]\d+)?)(\s?%|\s(?:de cada \d+|veces|horas|días|minutos|segundos|semanas|meses|máquinas|sucursales|personas|empleados|millones|mil|por ciento))(?![\w-])/i);
+    if (!m) continue;
+    const n = Number(m[1]!.replace(",", "."));
+    if (n >= 1900 && n <= 2100) continue;
+    if (o.length < 40 || o.length > 260 || /^[-•*]|["“”¿?]/.test(o)) continue; // ni ejemplos ni preguntas
+    return { tipo: "dato", valor: `${m[1]}${m[2]!.trim() === "%" ? "%" : ""}`, texto: o.trim() };
+  }
+  return null;
 }
 
 const FIJOS = ["dueñosdenegocio", "automatizacion", "inteligenciaartificial", "pymesmexico", "owneria"];
@@ -99,7 +136,7 @@ export function textoPost(a: Articulo, ls: Lamina[]) {
   const puntos = ls.filter((l) => l.tipo === "punto").map((l) => `→ ${l.titulo}`);
   const tags = [...new Set([...a.palabrasClave.map(hashtag), ...FIJOS])]
     .filter((t) => t.length > 2 && t.length < 30)
-    .slice(0, 10)
+    .slice(0, 6)
     .map((t) => `#${t}`);
   return [
     a.titulo,
@@ -108,7 +145,7 @@ export function textoPost(a: Articulo, ls: Lamina[]) {
     "",
     ...puntos,
     "",
-    `Artículo completo en owneria.mx/blog/${a.slug} (enlace en la bio).`,
+    `Completo en owneria.mx/blog/${a.slug}`,
     "",
     tags.join(" "),
   ].join("\n");

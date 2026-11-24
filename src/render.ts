@@ -18,7 +18,7 @@ export type Tema = "noche" | "azul" | "claro";
 // Ciclo de 4 en una cuadrícula de 3 columnas: los colores corren en diagonal en lugar de hacer franjas.
 export const TEMAS: Tema[] = ["noche", "azul", "claro", "azul"];
 
-type Paleta = {
+export type Paleta = {
   fondo: string;
   capas: string; // gradientes encima del fondo
   texto: string;
@@ -33,7 +33,7 @@ type Paleta = {
   wordmark: { tinta: string; acento: string };
 };
 
-const P: Record<Tema, Paleta> = {
+export const P: Record<Tema, Paleta> = {
   noche: {
     fondo: "#0C0E14",
     capas:
@@ -87,20 +87,20 @@ const fuente = (peso: number, archivo: string) => ({
   style: "normal" as const,
   data: readFileSync(join(RAIZ, "fuentes", archivo)),
 });
-const FUENTES = [fuente(300, "Poppins-Light.ttf"), fuente(400, "Poppins-Regular.ttf"), fuente(500, "Poppins-Medium.ttf")];
+export const FUENTES = [fuente(300, "Poppins-Light.ttf"), fuente(400, "Poppins-Regular.ttf"), fuente(500, "Poppins-Medium.ttf")];
 
-const b64 = (svg: string) => `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+export const b64 = (svg: string) => `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
 const WM_BASE = readFileSync(join(RAIZ, "marca", "owneria-wordmark-dark.svg"), "utf8");
-const wordmark = (p: Paleta) =>
+export const wordmark = (p: Paleta) =>
   b64(WM_BASE.replace('fill="#FFFFFF"', `fill="${p.wordmark.tinta}"`).replace('fill="#60A5FA"', `fill="${p.wordmark.acento}"`));
 
 // Mini JSX sin React: satori acepta objetos { type, props }.
-type Nodo = { type: string; props: Record<string, unknown> };
-const h = (type: string, style: Record<string, unknown>, ...children: unknown[]): Nodo => ({
+export type Nodo = { type: string; props: Record<string, unknown> };
+export const h = (type: string, style: Record<string, unknown>, ...children: unknown[]): Nodo => ({
   type,
   props: { style: { display: "flex", ...style }, children: children.length === 1 ? children[0] : children },
 });
-const img = (src: string, w: number, hgt: number, style: Record<string, unknown> = {}): Nodo => ({
+export const img = (src: string, w: number, hgt: number, style: Record<string, unknown> = {}): Nodo => ({
   type: "img",
   props: { src, width: w, height: hgt, style: { width: w, height: hgt, ...style } },
 });
@@ -165,11 +165,10 @@ const icono = (p: Paleta, path: string, t: number, color = p.acento) =>
     t,
   );
 const FLECHA = '<path d="M4 12h16M14 6l6 6-6 6"/>';
-const GUARDAR = '<path d="M6 3h12v18l-6-4-6 4z"/>';
 const CHECK = '<path d="M5 12.5l4.5 4.5L19 7.5"/>';
 
 /** Parte el título para resaltar: lo que va después de «:» o las últimas palabras. */
-function partir(t: string): [string, string] {
+export function partir(t: string): [string, string] {
   const i = t.indexOf(":");
   if (i > 8 && i < t.length - 8) return [t.slice(0, i + 1), t.slice(i + 1).trim()];
   const ps = t.split(" ");
@@ -270,6 +269,72 @@ function arbol(l: Lamina, i: number, total: number, p: Paleta, tramo: string): N
       tramo,
     );
   }
+  const etiqueta = (t: string) =>
+    h("div", { alignItems: "center", gap: 18, fontSize: 26, fontWeight: 500, letterSpacing: 4, color: p.acento }, h("div", { width: 56, height: 3, background: p.acento }), t);
+
+  if (l.tipo === "diagrama") {
+    const n = l.nodos.length;
+    return marco(
+      p,
+      i,
+      total,
+      [],
+      h(
+        "div",
+        { flexDirection: "column" },
+        etiqueta("EL MAPA"),
+        h(
+          "div",
+          { flexDirection: "column", marginTop: 50, position: "relative" },
+          // Riel vertical que une los nodos.
+          h("div", { position: "absolute", left: 27, top: 30, width: 4, height: (n - 1) * 112, background: p.linea }),
+          ...l.nodos.map((t, k) =>
+            h(
+              "div",
+              { alignItems: "center", gap: 34, height: 112 },
+              h(
+                "div",
+                {
+                  width: 58,
+                  height: 58,
+                  borderRadius: 58,
+                  border: `5px solid ${p.acento}`,
+                  background: k === n - 1 ? p.acento : p.fondo,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                },
+                h("div", { width: 16, height: 16, borderRadius: 16, background: k === n - 1 ? p.fondo : p.acento }),
+              ),
+              h("div", { fontSize: 50, fontWeight: k === n - 1 ? 500 : 300, letterSpacing: -1 }, t),
+            ),
+          ),
+        ),
+        h("div", { marginTop: 40, fontSize: 32, fontWeight: 300, lineHeight: 1.45, color: p.suave }, l.titulo),
+      ),
+      [h("div", {}, "@owneria.mx"), h("div", {}, `${String(i + 1).padStart(2, "0")} / ${String(total).padStart(2, "0")}`)],
+      tramo,
+    );
+  }
+
+  if (l.tipo === "dato") {
+    return marco(
+      p,
+      i,
+      total,
+      [aroGrande(p, 1100, 380, 120, false)],
+      h(
+        "div",
+        { flexDirection: "column" },
+        etiqueta("EL DATO"),
+        h("div", { marginTop: 10, fontSize: l.valor.length > 3 ? 300 : 400, fontWeight: 300, lineHeight: 1, letterSpacing: -20, color: p.acento }, l.valor),
+        h("div", { marginTop: 30, fontSize: 46, fontWeight: 300, lineHeight: 1.35, letterSpacing: -0.5 }, l.texto),
+      ),
+      [h("div", {}, "@owneria.mx"), h("div", {}, "Dato real de un proyecto")],
+      tramo,
+    );
+  }
+
   return marco(
     p,
     i,
@@ -277,18 +342,16 @@ function arbol(l: Lamina, i: number, total: number, p: Paleta, tramo: string): N
     [aroGrande(p, 1250, -85, -60, false)],
     h(
       "div",
-      { flexDirection: "column", alignItems: "center", textAlign: "center" },
-      h("div", { width: 150, height: 150, borderRadius: 150, border: `12px solid ${p.texto}`, alignItems: "center", justifyContent: "center" }, h("div", { width: 34, height: 34, borderRadius: 34, background: p.punto })),
-      h("div", { marginTop: 64, fontSize: 82, fontWeight: 300, lineHeight: 1.08, letterSpacing: -2.5, justifyContent: "center", flexWrap: "wrap" }, l.titulo),
-      h("div", { marginTop: 32, fontSize: 36, fontWeight: 300, color: p.suave, lineHeight: 1.45, justifyContent: "center" }, "El artículo completo está en owneria.mx/blog"),
+      { flexDirection: "column" },
+      etiqueta("PARA LLEVARTE"),
+      h("div", { marginTop: 40, fontSize: l.idea.length > 110 ? 62 : 72, fontWeight: 300, lineHeight: 1.15, letterSpacing: -2 }, l.idea),
       h(
         "div",
-        { marginTop: 56, gap: 20 },
-        h("div", { alignItems: "center", gap: 14, border: `2px solid ${p.texto}`, borderRadius: 999, padding: "20px 36px", fontSize: 30, fontWeight: 500 }, icono(p, GUARDAR, 32, p.texto), "Guárdalo"),
-        h("div", { background: p.boton, color: p.botonTexto, borderRadius: 999, padding: "22px 40px", fontSize: 30, fontWeight: 500 }, "Sigue a @owneria.mx"),
+        { marginTop: 60, width: 120, height: 120, borderRadius: 120, border: `10px solid ${p.texto}`, alignItems: "center", justifyContent: "center" },
+        h("div", { width: 28, height: 28, borderRadius: 28, background: p.punto }),
       ),
     ),
-    [h("div", {}, "Tu negocio conectado. Tú al mando."), h("div", {}, "owneria.mx")],
+    [h("div", {}, "Tu negocio conectado. Tú al mando."), h("div", {}, "owneria.mx/blog")],
     tramo,
   );
 }
