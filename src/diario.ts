@@ -95,6 +95,12 @@ async function publicar(formato: Formato, carpeta: string, archivos: string[], t
   return String(pub["id"]);
 }
 
+// En prueba, si hay llaves, confirma que el token abre la cuenta correcta (sin publicar nada).
+if (PRUEBA && process.env["IG_TOKEN"] && process.env["IG_USER_ID"]) {
+  const c = await ig(`${env("IG_USER_ID")}?fields=username,media_count`);
+  console.log(`Token válido: @${c["username"]} (${c["media_count"]} publicaciones)`);
+}
+
 const r = await fetch(`${SITIO}/api/public/articulos`);
 if (!r.ok) throw new Error(`No se pudieron leer los artículos: ${r.status}`);
 const articulos = ((await r.json()) as Articulo[])
