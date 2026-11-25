@@ -98,6 +98,6 @@ for (const [i, it] of items.entries()) {
 const slugs = items.map((x) => x.slug).filter((s) => existsSync(join(DIR, `${s}.jpg`)));
 writeFileSync(
   LISTA,
-  `// Generado por instagram/src/og.ts (bun run og). No editar a mano.\n// Artículos con imagen propia en public/blog/og/<slug>.jpg; los demás usan og.png.\nexport const OG_ARTICULOS = new Set<string>(${JSON.stringify(slugs, null, 2)});\n`,
+  `// Generado por instagram/src/og.ts (bun run og). No editar a mano.\n// Artículos con imagen propia en public/blog/og/<slug>.jpg; los demás usan og.png.\nexport const OG_ARTICULOS = new Set<string>([\n${slugs.map((x) => `  ${JSON.stringify(x)},\n`).join("")}]);\n`,
 );
 console.log(`${nuevas} nuevas · ${slugs.length} en la lista`);
