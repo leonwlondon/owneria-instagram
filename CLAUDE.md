@@ -8,4 +8,5 @@ Publica dos veces al día en Instagram. **Mañana (8:30 CDMX):** el artículo de
 - **Secretos (GitHub Actions, nunca en el código):** `IG_USER_ID` (cuenta de Instagram profesional) e `IG_TOKEN` (token de página de larga duración con `instagram_content_publish`). Opcional `IG_API` (por omisión `https://graph.facebook.com/v23.0`).
 - **Probar sin publicar:** `PRUEBA=1 bun src/diario.ts` (o «Run workflow» con «Solo dibujar»). Muestras locales: `bun src/muestra-reel.ts 7 noche`, `bun src/muestra.ts 10` y `bun src/hojas.ts` → `muestras/` (hojas por carrusel y `perfil.jpg`).
 - **Si falla:** la Action queda en rojo y GitHub avisa por correo. Volver a correrla es seguro: lo publicado ya está en `publicados.json`.
+- **Imágenes OG del blog:** `bun run og` (`src/og.ts`) dibuja 1200×630 por artículo y noticia en `../app/public/blog/og/` y la lista `../app/src/content/blog/og.ts`; luego push del sitio y Publish en Lovable. `--todas` las rehace.
 - **Reglas:** todo sale del artículo publicado; no inventar cifras ni casos.

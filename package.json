@@ -5,6 +5,7 @@
   "scripts": {
     "muestra": "bun src/muestra.ts",
     "diario": "bun src/diario.ts",
+    "og": "bun src/og.ts",
     "test": "bun test"
   },
   "dependencies": {
