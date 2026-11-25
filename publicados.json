@@ -64,5 +64,11 @@
     "formato": "carrusel",
     "banco": true,
     "fecha": "2026-11-25T06:01:55.354Z"
+  },
+  "banco:caso-centro-negocios": {
+    "media": "18387222655234813",
+    "formato": "carrusel",
+    "banco": true,
+    "fecha": "2026-11-25T09:23:13.487Z"
   }
 }
