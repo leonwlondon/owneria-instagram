@@ -27,6 +27,17 @@ const SITIO = env("SITIO", "https://owneria.mx");
 const RAW = env("RAW_BASE", "https://leonwlondon.github.io/owneria-instagram");
 // Turno de la mañana: artículo del blog. Turno de la tarde: pieza propia (casos, glosario, ideas, preguntas…).
 const TURNO = env("TURNO", "manana") === "tarde" ? "tarde" : "manana";
+
+// Pausas puntuales: pausas.txt con renglones «AAAA-MM-DD turno» (fecha de CDMX). Ese turno no publica.
+{
+  const hoy = new Date(Date.now() - 6 * 3600e3).toISOString().slice(0, 10);
+  const arch = join(RAIZ, "pausas.txt");
+  const pausas = existsSync(arch) ? readFileSync(arch, "utf8").split("\n").map((l) => l.trim()) : [];
+  if (!process.env["PRUEBA"]?.startsWith("1") && pausas.includes(`${hoy} ${TURNO}`)) {
+    console.log(`Pausa: el turno ${TURNO} del ${hoy} no publica (pausas.txt).`);
+    process.exit(0);
+  }
+}
 const API = env("IG_API", "https://graph.facebook.com/v23.0");
 
 type Registro = Record<string, { media: string; formato?: string; banco?: boolean; fecha: string }>;
