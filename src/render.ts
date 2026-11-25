@@ -90,6 +90,7 @@ const fuente = (peso: number, archivo: string) => ({
 export const FUENTES = [fuente(300, "Poppins-Light.ttf"), fuente(400, "Poppins-Regular.ttf"), fuente(500, "Poppins-Medium.ttf")];
 
 export const b64 = (svg: string) => `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+const FOTO = `data:image/jpeg;base64,${readFileSync(join(RAIZ, "marca", "leon.jpg")).toString("base64")}`;
 const WM_BASE = readFileSync(join(RAIZ, "marca", "owneria-wordmark-dark.svg"), "utf8");
 export const wordmark = (p: Paleta) =>
   b64(WM_BASE.replace('fill="#FFFFFF"', `fill="${p.wordmark.tinta}"`).replace('fill="#60A5FA"', `fill="${p.wordmark.acento}"`));
@@ -331,6 +332,33 @@ function arbol(l: Lamina, i: number, total: number, p: Paleta, tramo: string): N
     );
   }
 
+  if (l.tipo === "foto") {
+    // León es el punto dentro del aro del logo: el círculo es el negocio.
+    const D = 290;
+    return marco(
+      p,
+      i,
+      total,
+      [aroGrande(p, 980, 430, -330, false)],
+      h(
+        "div",
+        { flexDirection: "column" },
+        h(
+          "div",
+          { width: D + 56, height: D + 56, borderRadius: 999, border: `22px solid ${p.texto}`, alignItems: "center", justifyContent: "center" },
+          img(FOTO, D - 20, D - 20, { borderRadius: 999, objectFit: "cover", objectPosition: "62% 38%" }),
+        ),
+        h("div", { marginTop: 36, alignSelf: "flex-start", fontSize: 25, fontWeight: 500, letterSpacing: 3, color: p.acento }, l.etiqueta.toUpperCase()),
+        h("div", { marginTop: 18, fontSize: l.titulo.length > 40 ? 64 : 76, fontWeight: 300, lineHeight: 1.08, letterSpacing: -2.5 }, l.titulo),
+        h("div", { marginTop: 22, fontSize: 32, fontWeight: 300, lineHeight: 1.4, color: p.suave }, l.texto),
+        l.chips
+          ? h("div", { marginTop: 30, flexWrap: "wrap", gap: 12 }, ...l.chips.map((c) => h("div", { border: `2px solid ${p.linea}`, borderRadius: 999, padding: "8px 22px", fontSize: 24 }, c)))
+          : h("div", {}),
+      ),
+      [h("div", {}, "@owneria.mx"), h("div", {}, "owneria.mx")],
+      tramo,
+    );
+  }
   if (l.tipo === "frase") {
     return marco(
       p,

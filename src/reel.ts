@@ -66,7 +66,7 @@ function base(p: Paleta, t: number, hijos: Nodo[]) {
 const capa = (hijos: Nodo[] | Nodo, estilo: Record<string, unknown> = {}) =>
   h("div", { position: "absolute", left: 90, right: 90, top: 0, bottom: 0, flexDirection: "column", justifyContent: "center", ...estilo }, ...(Array.isArray(hijos) ? hijos : [hijos]));
 
-function escenas(ls: Lamina[], p: Paleta): Escena[] {
+function escenas(ls: Lamina[], p: Paleta, pie: string): Escena[] {
   const portada = ls.find((l) => l.tipo === "portada") as Extract<Lamina, { tipo: "portada" }>;
   const puntos = ls.filter((l) => l.tipo === "punto").slice(0, 3) as Extract<Lamina, { tipo: "punto" }>[];
   const dato = ls.find((l) => l.tipo === "dato") as Extract<Lamina, { tipo: "dato" }> | undefined;
@@ -201,7 +201,7 @@ function escenas(ls: Lamina[], p: Paleta): Escena[] {
         capa(
           [
             aro(p, 260, tramo(t, ini, ini + 1.1), tramo(t, ini + 0.9, ini + 1.5), p.texto, 9),
-            h("div", { marginTop: 60, fontSize: 40, fontWeight: 300, color: p.suave, opacity: tramo(t, ini + 1, ini + 1.6) }, "owneria.mx/blog"),
+            h("div", { marginTop: 60, fontSize: 40, fontWeight: 300, color: p.suave, opacity: tramo(t, ini + 1, ini + 1.6) }, pie),
           ],
           { alignItems: "center" },
         ),
@@ -210,9 +210,9 @@ function escenas(ls: Lamina[], p: Paleta): Escena[] {
   return out;
 }
 
-export async function dibujarReel(ls: Lamina[], tema: Tema, salida: string, portadaJpg: string) {
+export async function dibujarReel(ls: Lamina[], tema: Tema, salida: string, portadaJpg: string, pie = "owneria.mx/blog") {
   const p = P[tema];
-  return grabar(p, escenas(ls, p), salida, portadaJpg, 2.6);
+  return grabar(p, escenas(ls, p, pie), salida, portadaJpg, 2.6);
 }
 
 /** Reel de «Pregúntale a tu negocio»: la pregunta se escribe sola y el negocio contesta con datos. */

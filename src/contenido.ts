@@ -23,7 +23,8 @@ export type Lamina =
   | { tipo: "cierre"; idea: string }
   | { tipo: "seccion"; etiqueta: string; titulo: string; texto?: string; lista?: string[]; fondo?: string; chips?: boolean }
   | { tipo: "termino"; termino: string; definicion: string; ejemplo: string }
-  | { tipo: "frase"; texto: string; firma: string };
+  | { tipo: "frase"; texto: string; firma: string }
+  | { tipo: "foto"; etiqueta: string; titulo: string; texto: string; chips?: string[] };
 
 const MAX_PUNTOS = 5;
 
