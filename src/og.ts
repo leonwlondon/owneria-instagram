@@ -1,7 +1,8 @@
 // Imagen para redes (Open Graph, 1200×630) de cada artículo y noticia del blog.
-// El sitio corre en un Worker de Cloudflare, donde satori/resvg no se llevan bien, así que se generan aquí
-// y se guardan en el sitio: `app/public/blog/og/<slug>.jpg` + la lista `app/src/content/blog/og.ts`.
-// Los artículos sin imagen usan la general (`og.png`).
+// El sitio corre en un Worker de Cloudflare, donde satori/resvg no se llevan bien, así que se generan aquí,
+// en `og/<slug>.jpg`, y GitHub Pages las sirve. El sitio las entrega en owneria.mx/blog/og/<slug>.jpg
+// (ruta `app/src/routes/blog/og/$archivo.ts`), con og.png de respaldo mientras no existan.
+// Corre solo cada mañana: `.github/workflows/og.yml`.
 //   bun run og            → solo las que faltan
 //   bun run og --todas    → todas de nuevo
 //   OG_FUENTE=http://localhost:5173 bun run og   → lee del servidor local
@@ -14,9 +15,7 @@ import { P, TEMAS, FUENTES, b64, h, img, partir, wordmark, type Paleta } from ".
 
 const W = 1200;
 const H = 630;
-const APP = join(import.meta.dir, "..", "..", "app");
-const DIR = join(APP, "public", "blog", "og");
-const LISTA = join(APP, "src", "content", "blog", "og.ts");
+const DIR = join(import.meta.dir, "..", "og");
 const FUENTE = process.env.OG_FUENTE ?? "https://owneria.mx";
 
 type Item = { slug: string; tipo?: "articulo" | "noticia"; titulo: string; categoria: string };
@@ -95,9 +94,4 @@ for (const [i, it] of items.entries()) {
   console.log(`✓ ${i + 1}/${items.length} ${it.slug}`);
 }
 
-const slugs = items.map((x) => x.slug).filter((s) => existsSync(join(DIR, `${s}.jpg`)));
-writeFileSync(
-  LISTA,
-  `// Generado por instagram/src/og.ts (bun run og). No editar a mano.\n// Artículos con imagen propia en public/blog/og/<slug>.jpg; los demás usan og.png.\nexport const OG_ARTICULOS = new Set<string>([\n${slugs.map((x) => `  ${JSON.stringify(x)},\n`).join("")}]);\n`,
-);
-console.log(`${nuevas} nuevas · ${slugs.length} en la lista`);
+console.log(`${nuevas} nuevas · ${items.length} en total`);
