@@ -1,0 +1,7 @@
+CRM de contratos con firma
+
+Contrataciones y renovaciones en tableros; cada tarjeta tiene su propio correo y se manda a firma con recordatorios en días hábiles.
+
+Uno de los sistemas que ya construí.
+
+#dueñosdenegocio #automatizacion #inteligenciaartificial #pymesmexico #owneria
